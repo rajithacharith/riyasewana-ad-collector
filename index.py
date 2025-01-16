@@ -1,19 +1,28 @@
+"""
+Module for scraping car data from Riyasewana and storing it in Google Sheets.
+"""
+
 import os
 import requests
 from bs4 import BeautifulSoup
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
+ACCEPT_HEADER_VALUE = ('text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,'
+                       'image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7')
+USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36')
 headers = {
-    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'accept': ACCEPT_HEADER_VALUE,
     'accept-language': 'en-US,en;q=0.9',
-    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    'user-agent': USER_AGENT
 }
 
 def extract_riyasewana_advertisement(url):
+    """Extract car details from a Riyasewana advertisement page.
+
+    This function takes a URL of a Riyasewana advertisement page and returns a dictionary of car details.
+    """
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -30,15 +39,13 @@ def extract_riyasewana_advertisement(url):
             'contact': soup.find('td', text='Contact').find_next_sibling('td').text.strip()
         }
         return car_details
-    else:
-        return None
+    return None
 
 def scrape_riyasewana_list(url):
-    headers = {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'accept-language': 'en-US,en;q=0.9',
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/'
-    }
+    """Scrape the Riyasewana listing page and return a list of car dictionaries.
+    
+    This function takes a URL of a Riyasewana listing page and returns a list of car dictionaries.
+    """
     cars = []
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -47,10 +54,14 @@ def scrape_riyasewana_list(url):
             car = {
                 'title': item.find('h2', class_='more').find('a').get('title').strip(),
                 'url': item.find('h2', class_='more').find('a').get('href').strip(),
-                'image': item.find('div', class_='imgbox').find('img').get('src').strip(),
-                'location': item.find('div', class_='boxtext').find_all('div', class_='boxintxt')[0].text.strip(),
-                'price': item.find('div', class_='boxtext').find_all('div', class_='boxintxt')[1].text.strip(),
-                'mileage': item.find('div', class_='boxtext').find_all('div', class_='boxintxt')[2].text.strip(),
+                'image': (item.find('div', class_='imgbox')
+                         .find('img').get('src').strip()),
+                'location': (item.find('div', class_='boxtext')
+                           .find_all('div', class_='boxintxt')[0].text.strip()),
+                'price': (item.find('div', class_='boxtext')
+                         .find_all('div', class_='boxintxt')[1].text.strip()),
+                'mileage': (item.find('div', class_='boxtext')
+                           .find_all('div', class_='boxintxt')[2].text.strip()),
             }
             ad_details = extract_riyasewana_advertisement(car['url'])
             if ad_details is not None:
@@ -59,10 +70,15 @@ def scrape_riyasewana_list(url):
     return cars
 
 def email_newest_listings(newest_additions):
+    """Email the newest car listings."""
     print("Emailing newest listings")
 
-            
 def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
+    """Store car data in a Google Sheet.
+
+    This function takes a list of car dictionaries and stores them in a specified Google Sheet,
+    avoiding duplicate entries based on the car's URL.
+    """
     google_credentionals_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_PATH')
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_name(google_credentionals_path, scope)
@@ -70,10 +86,14 @@ def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
 
     # Open the Google Sheet
     sheet = client.open(google_sheet_name).worksheet(sheet_name)
-    header = ["Title", "URL", "Image", "Location", "Price", "Mileage", "Make", "Model", "Year of Manufacture", "Mileage (km)", "Gear", "Fuel Type", "Options", "Engine (cc)","Contact","Details"]
+    header = [
+        "Title", "URL", "Image", "Location", "Price", "Mileage", "Make", "Model", 
+        "Year of Manufacture", "Mileage (km)", "Gear", "Fuel Type", "Options", 
+        "Engine (cc)", "Contact", "Details"
+    ]
     if not sheet.row_values(1):
         sheet.append_row(header)
-    existing_urls = sheet.col_values(2)  
+    existing_urls = sheet.col_values(2)
     print(existing_urls)
     newest_additions = []
     for car in cars:
@@ -98,12 +118,12 @@ def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
             ]
             sheet.append_row(row)
             newest_additions.append(row)
-    
+
 def collect_car_data(url):
+    """Collect car data from the given URL and store it in Google Sheets."""
     cars = scrape_riyasewana_list(url)
     store_cars_in_google_sheet(cars, "Test", "Sheet2")
 
-
 if __name__ == "__main__":
-    riyasewana_listing_url = "https://riyasewana.com/search/cars/toyota/ist"
-    collect_car_data(riyasewana_listing_url)
+    RIYASEWANA_LISTING_URL = "https://riyasewana.com/search/cars/toyota/ist"
+    collect_car_data(RIYASEWANA_LISTING_URL)
