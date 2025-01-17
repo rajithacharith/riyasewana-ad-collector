@@ -69,10 +69,6 @@ def scrape_riyasewana_list(url):
             cars.append(car)
     return cars
 
-def email_newest_listings(newest_additions):
-    """Email the newest car listings."""
-    print("Emailing newest listings")
-
 def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
     """Store car data in a Google Sheet.
 
@@ -94,7 +90,6 @@ def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
     if not sheet.row_values(1):
         sheet.append_row(header)
     existing_urls = sheet.col_values(2)
-    print(existing_urls)
     newest_additions = []
     for car in cars:
         if car.get('url', '') not in existing_urls:
@@ -122,7 +117,9 @@ def store_cars_in_google_sheet(cars, google_sheet_name, sheet_name):
 def collect_car_data(url):
     """Collect car data from the given URL and store it in Google Sheets."""
     cars = scrape_riyasewana_list(url)
-    store_cars_in_google_sheet(cars, "Test", "Sheet2")
+    google_sheet_name = os.environ.get('GOOGLE_SHEET_NAME')
+    worksheet_name = os.environ.get('WORKSHEET_NAME')
+    store_cars_in_google_sheet(cars, google_sheet_name, worksheet_name)
 
 if __name__ == "__main__":
     RIYASEWANA_LISTING_URL = "https://riyasewana.com/search/cars/toyota/ist"
